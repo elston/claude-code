@@ -1,4 +1,4 @@
-FROM node:20
+FROM node:22-bookworm
 
 ARG TZ
 ENV TZ="$TZ"
@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   jq \
   nano \
   vim \
+  curl \
   # --- Python 3.12 build dependencies ---
   build-essential \
   libssl-dev \
@@ -40,6 +41,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   bash-completion \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Устанавливаем только Docker CLI + плагин compose. Демон не нужен —
+# все запросы уходят через DOCKER_HOST на api-filter.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates gnupg \
+  && install -m 0755 -d /etc/apt/keyrings \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg \
+      | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+  && chmod a+r /etc/apt/keyrings/docker.gpg \
+  && . /etc/os-release \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
+      > /etc/apt/sources.list.d/docker.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+  && apt-get purge -y --auto-remove gnupg \
+  && rm -rf /var/lib/apt/lists/*
 
 # --- Install Python 3.12 from source ---
 ARG PYTHON_VERSION=3.12.10
